@@ -583,7 +583,7 @@ class ROAModel(models.Model):
             return JSONRenderer()
         elif ROA_FORMAT == 'xml':
             return XMLRenderer()
-        elif ROAException == 'yaml':
+        elif ROA_FORMAT == 'yaml':
             return YAMLRenderer()
         else:
             raise NotImplementedError
@@ -597,7 +597,7 @@ class ROAModel(models.Model):
             return JSONParser()
         elif ROA_FORMAT == 'xml':
             return XMLParser()
-        elif ROAException == 'yaml':
+        elif ROA_FORMAT == 'yaml':
             return YAMLParser()
         else:
             raise NotImplementedError
@@ -607,7 +607,7 @@ class ROAModel(models.Model):
             return {'Content-Type' : 'application/json'}
         elif ROA_FORMAT == 'xml':
             return {'Content-Type' : 'application/xml'}
-        elif ROAException == 'yaml':
+        elif ROA_FORMAT == 'yaml':
             return {'Content-Type' : 'text/x-yaml'}
         else:
             raise NotImplementedError
