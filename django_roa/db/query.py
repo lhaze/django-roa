@@ -3,21 +3,23 @@ from StringIO import StringIO
 
 from django.conf import settings
 from django.db.models import query
-from django.core import serializers
 # Django >= 1.5
 from django_roa.db import get_roa_headers
 
 try:
     from django.db.models.constants import LOOKUP_SEP
-#Django < 1.4
-except:
+# Django < 1.4
+except ImportError:
     from django.db.models.sql.constants import LOOKUP_SEP
 from django.db.models.query_utils import Q
 from django.utils.encoding import force_unicode
 
 from restkit import Resource, ResourceNotFound
-from django_roa.db.exceptions import ROAException, ROANotImplementedYetException
+from django_roa.db.exceptions import (
+    ROAException, ROANotImplementedYetException
+)
 from copy import deepcopy
+
 
 logger = logging.getLogger("django_roa")
 
@@ -99,7 +101,9 @@ class Query(object):
 
         # Filtering
         for k, v in self.filters.iteritems():
-            key = '%s%s' % (ROA_ARGS_NAMES_MAPPING.get('FILTER_', 'filter_'), k)
+            key = '%s%s' % (
+                ROA_ARGS_NAMES_MAPPING.get('FILTER_', 'filter_'), k
+            )
             # v could be an object
             try:
                 v = v.id
@@ -111,24 +115,30 @@ class Query(object):
             else:
                 parameters[key] = v
         for k, v in self.excludes.iteritems():
-            key = '%s%s' % (ROA_ARGS_NAMES_MAPPING.get('EXCLUDE_', 'exclude_'), k)
+            key = '%s%s' % (
+                ROA_ARGS_NAMES_MAPPING.get('EXCLUDE_', 'exclude_'), k
+            )
             if key in ROA_ARGS_NAMES_MAPPING:
                 parameters[ROA_ARGS_NAMES_MAPPING[key]] = v
             else:
                 parameters[key] = v
         if self.search_term:
-            parameters[ROA_ARGS_NAMES_MAPPING.get('SEARCH_', 'search')] = self.search_term
+            key = ROA_ARGS_NAMES_MAPPING.get('SEARCH_', 'search')
+            parameters[key] = self.search_term
 
         # Ordering
         if self.order_by:
             order_by = ','.join(self.order_by)
-            parameters[ROA_ARGS_NAMES_MAPPING.get('ORDER_BY', 'order_by')] = order_by
+            key = ROA_ARGS_NAMES_MAPPING.get('ORDER_BY', 'order_by')
+            parameters[key] = order_by
 
         # Slicing
         if self.limit_start:
-            parameters[ROA_ARGS_NAMES_MAPPING.get('LIMIT_START', 'limit_start')] = self.limit_start
+            key = ROA_ARGS_NAMES_MAPPING.get('LIMIT_START', 'limit_start')
+            parameters[key] = self.limit_start
         if self.limit_stop:
-            parameters[ROA_ARGS_NAMES_MAPPING.get('LIMIT_STOP', 'limit_stop')] = self.limit_stop
+            key = ROA_ARGS_NAMES_MAPPING.get('LIMIT_STOP', 'limit_stop')
+            parameters[key] = self.limit_stop
 
         # Format
         parameters[ROA_ARGS_NAMES_MAPPING.get('FORMAT', 'format')] = ROA_FORMAT
@@ -205,17 +215,20 @@ class RemoteQuerySet(query.QuerySet):
                             filters=ROA_FILTERS, **ROA_SSL_ARGS)
         try:
             parameters = self.query.parameters
-            logger.debug(u"""Requesting: "%s" through %s with parameters "%s" """ % (
-                          self.model.__name__,
-                          resource.uri,
-                          force_unicode(parameters)))
-            response = resource.get(headers=self._get_http_headers(), **parameters)
+            logger.debug(
+                u"Requesting: '{}' through {} with parameters '{}'".format(
+                    self.model.__name__,
+                    resource.uri,
+                    force_unicode(parameters)))
+            response = resource.get(
+                headers=self._get_http_headers(), **parameters)
         except ResourceNotFound:
             return
         except Exception as e:
             raise ROAException(e)
 
-        response = force_unicode(response.body_string()).encode(DEFAULT_CHARSET)
+        response = force_unicode(response.body_string()). \
+            encode(DEFAULT_CHARSET)
 
         # Deserializing objects:
         data = self.model.get_parser().parse(StringIO(response))
@@ -234,7 +247,9 @@ class RemoteQuerySet(query.QuerySet):
         if data != []:
             serializer = self.model.get_serializer(data=data)
             if not serializer.is_valid():
-                raise ROAException(u'Invalid deserialization for %s model: %s' % (self.model, serializer.errors))
+                raise ROAException(
+                    u"Invalid deserialization for '{}' model: '{}'".format(
+                        self.model, serializer.errors))
 
             for obj in serializer.object:
                 yield obj
@@ -256,15 +271,18 @@ class RemoteQuerySet(query.QuerySet):
                             filters=ROA_FILTERS, **ROA_SSL_ARGS)
         try:
             parameters = clone.query.parameters
-            logger.debug(u"""Counting  : "%s" through %s with parameters "%s" """ % (
-                clone.model.__name__,
-                resource.uri,
-                force_unicode(parameters)))
-            response = resource.get(headers=self._get_http_headers(), **parameters)
+            logger.debug(
+                u"Counting  : '{}' through {} with parameters '{}'".format(
+                    clone.model.__name__,
+                    resource.uri,
+                    force_unicode(parameters)))
+            response = resource.get(
+                headers=self._get_http_headers(), **parameters)
         except Exception as e:
             raise ROAException(e)
 
-        response = force_unicode(response.body_string()).encode(DEFAULT_CHARSET)
+        response = force_unicode(response.body_string()). \
+            encode(DEFAULT_CHARSET)
         data = self.model.get_parser().parse(StringIO(response))
         return self.model.count_response(data)
 
@@ -292,15 +310,18 @@ class RemoteQuerySet(query.QuerySet):
                             **extra_args)
         try:
             parameters = clone.query.parameters
-            logger.debug(u"""Retrieving : "%s" through %s with parameters "%s" """ % (
-                clone.model.__name__,
-                resource.uri,
-                force_unicode(parameters)))
-            response = resource.get(headers=self._get_http_headers(), **parameters)
+            logger.debug(
+                u"Retrieving : '{}' through {} with parameters '{}'".format(
+                    clone.model.__name__,
+                    resource.uri,
+                    force_unicode(parameters)))
+            response = resource.get(
+                headers=self._get_http_headers(), **parameters)
         except Exception as e:
             raise ROAException(e)
 
-        response = force_unicode(response.body_string()).encode(DEFAULT_CHARSET)
+        response = force_unicode(response.body_string()). \
+            encode(DEFAULT_CHARSET)
 
         for local_name, remote_name in ROA_MODEL_NAME_MAPPING:
             response = response.replace(remote_name, local_name)
@@ -309,7 +330,9 @@ class RemoteQuerySet(query.QuerySet):
         data = self.model.get_parser().parse(StringIO(response))
         serializer = self.model.get_serializer(data=data)
         if not serializer.is_valid():
-            raise ROAException(u'Invalid deserialization for %s model: %s' % (self.model, serializer.errors))
+            raise ROAException(
+                u"Invalid deserialization for {} model: '{}'".format(
+                    self.model, serializer.errors))
 
         return serializer.object
 
@@ -325,7 +348,11 @@ class RemoteQuerySet(query.QuerySet):
         custom_pk = self.model._meta.pk.attname
         # search PK, ID or custom PK attribute name for exact match and get set
         # of unique matches
-        attributes_set = set(attr for attr in ['id__exact', 'pk__exact', '%s__exact' % custom_pk] if attr in kwargs.keys())
+        attributes_set = set(
+            attr
+            for attr in ['id__exact', 'pk__exact', '%s__exact' % custom_pk]
+            if attr in kwargs.keys()
+        )
         exact_match = list(attributes_set)
         # common way of getting particular object
         if kwargs.keys() == ['id']:
@@ -350,7 +377,10 @@ class RemoteQuerySet(query.QuerySet):
         option or optional given field_name.
         """
         latest_by = field_name or self.model._meta.get_latest_by
-        assert bool(latest_by), "latest() requires either a field_name parameter or 'get_latest_by' in the model"
+        assert bool(latest_by), (
+            "latest() requires either a field_name parameter or "
+            "'get_latest_by' in the model"
+        )
 
         self.query.order_by.append('-%s' % latest_by)
         return self.iterator().next()
@@ -360,7 +390,7 @@ class RemoteQuerySet(query.QuerySet):
         Deletes the records in the current QuerySet.
         """
         assert self.query.can_filter(), \
-                "Cannot use 'limit' or 'offset' with delete."
+            "Cannot use 'limit' or 'offset' with delete."
 
         del_query = self._clone()
 
@@ -380,7 +410,9 @@ class RemoteQuerySet(query.QuerySet):
         if kwargs:
             raise TypeError('Unexpected keyword arguments to values_list')
         if flat and len(fields) > 1:
-            raise TypeError("'flat' is not valid when values_list is called with more than one field.")
+            raise TypeError(
+                "'flat' is not valid when values_list is called with more "
+                "than one field.")
 
         def parse_fields(instance):
             if flat:
@@ -399,7 +431,7 @@ class RemoteQuerySet(query.QuerySet):
         """
         if args or kwargs:
             assert self.query.can_filter(), \
-                    "Cannot filter a query once a slice has been taken."
+                "Cannot filter a query once a slice has been taken."
 
         clone = self._clone()
         clone.query.filter(*args, **kwargs)
@@ -411,20 +443,25 @@ class RemoteQuerySet(query.QuerySet):
         """
         if args or kwargs:
             assert self.query.can_filter(), \
-                    "Cannot filter a query once a slice has been taken."
+                "Cannot filter a query once a slice has been taken."
 
         clone = self._clone()
         clone.query.exclude(*args, **kwargs)
         return clone
 
-    def search(self, search_term, limit_start=None, limit_stop=None, *args, **kwargs):
+    def search(self, search_term, limit_start=None, limit_stop=None,
+               *args, **kwargs):
         """
         Returns a filtered QuerySet instance.
         """
-        assert not(args or kwargs), "Search accept only one arg (search_term) and limit_start/limit_stop kwargs"
+        assert not(args or kwargs), (
+            "Search accept only one arg (search_term) and "
+            "limit_start/limit_stop kwargs"
+        )
 
         clone = self._clone()
-        clone.query.search(search_term, limit_start=limit_start, limit_stop=limit_stop)
+        clone.query.search(
+            search_term, limit_start=limit_start, limit_stop=limit_stop)
         return clone
 
     def complex_filter(self, filter_obj):
@@ -450,12 +487,14 @@ class RemoteQuerySet(query.QuerySet):
         """
         depth = kwargs.pop('depth', 0)
         if kwargs:
-            raise TypeError('Unexpected keyword arguments to select_related: %s'
-                    % (kwargs.keys(),))
+            raise TypeError(
+                "Unexpected keyword arguments to select_related: {}".format(
+                    kwargs.keys()))
         obj = self._clone()
         if fields:
             if depth:
-                raise TypeError('Cannot pass both "depth" and fields to select_related()')
+                raise TypeError(
+                    'Cannot pass both "depth" and fields to select_related()')
             obj.query.add_select_related(fields)
         else:
             obj.query.select_related = True
@@ -468,7 +507,7 @@ class RemoteQuerySet(query.QuerySet):
         Returns a QuerySet instance with the ordering changed.
         """
         assert self.query.can_filter(), \
-                "Cannot reorder a query once a slice has been taken."
+            "Cannot reorder a query once a slice has been taken."
 
         clone = self._clone()
         for field_name in field_names:
@@ -487,7 +526,7 @@ class RemoteQuerySet(query.QuerySet):
         is an interesting documentation for details.
         """
         assert self.query.can_filter(), \
-                "Cannot change a query once a slice has been taken"
+            "Cannot change a query once a slice has been taken"
         if select == {'a': 1}:
             # Totally hackish but we need a fake object to deal with
             # successive calls to values and order_by based on a count
@@ -497,14 +536,15 @@ class RemoteQuerySet(query.QuerySet):
                     self.count = count
 
                 def values(self, *fields):
-                    if fields == ('a',): # double check that it's our case
+                    if fields == ('a',):  # double check that it's our case
                         return self
 
                 def order_by(self):
                     return self.count
 
             return FakeInt(self.count())
-        raise ROANotImplementedYetException('extra is not yet fully implemented.')
+        raise ROANotImplementedYetException(
+            'extra is not yet fully implemented.')
 
     ###################
     # PRIVATE METHODS #
@@ -529,7 +569,6 @@ class RemoteQuerySet(query.QuerySet):
         as (u'url', {'arg_key': 'arg_value'}).
         """
         return self.model.get_resource_url_list(), self.query.parameters
-
 
     def _get_http_headers(self):
         return get_roa_headers()

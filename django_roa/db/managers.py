@@ -8,7 +8,7 @@ class ROAManager(Manager):
     Manager which access remote resources.
     """
     use_for_related_fields = True
-    is_roa_manager = True # ugly but useful because isinstance is evil
+    is_roa_manager = True  # ugly but useful because isinstance is evil
 
     def get_query_set(self):
         """

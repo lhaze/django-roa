@@ -5,6 +5,7 @@ from django.utils.encoding import force_unicode
 
 ROA_DJANGO_ERRORS = getattr(settings, 'ROA_DJANGO_ERRORS', False)
 
+
 class ROAException(Exception):
     def __init__(self, exception):
 
@@ -51,8 +52,8 @@ class ROAException(Exception):
         indent, indent2 = u'  ', u'    '
         return u"%(summary)s %(traceback)s".strip() % {
             'summary': indent.join(force_unicode(line) for line in result),
-            'traceback': indent2.join(force_unicode(line+"\n") \
-                                        for line in traceback.split('\n')),
+            'traceback': indent2.join(
+                force_unicode(line+"\n") for line in traceback.split('\n')),
         }
 
 

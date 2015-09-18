@@ -2,12 +2,10 @@ import sys
 import copy
 import logging
 from StringIO import StringIO
-from django.utils import six
 
 import django
 
 from django.conf import settings
-from django.core import serializers
 from django.core.exceptions import ObjectDoesNotExist, MultipleObjectsReturned,\
     FieldError
 from django.db import models
@@ -18,12 +16,10 @@ from django.db.models.base import ModelBase, subclass_exception, \
     get_absolute_url, method_get_order, method_set_order
 from django.db.models.fields.related import (OneToOneField, add_lazy_relation)
 from django.utils.functional import curry
-from django.core.serializers.base import DeserializationError
-from django.core.serializers.python import Deserializer as PythonDeserializer, _get_model
 
 from functools import update_wrapper
 
-from django.utils.encoding import force_unicode, smart_unicode
+from django.utils.encoding import force_unicode
 from rest_framework.parsers import JSONParser, XMLParser, YAMLParser
 from rest_framework.renderers import JSONRenderer, XMLRenderer, YAMLRenderer
 
@@ -116,9 +112,10 @@ class ROAModelBase(ModelBase):
 
                 model_module = sys.modules[new_class.__module__]
                 package_components = model_module.__name__.split('.')
-                package_components.reverse()  # find the last occurrence of 'models'
+                # find the last occurrence of 'models'
+                package_components.reverse()
                 try:
-                    app_label_index = package_components.index(MODELS_MODULE_NAME) + 1
+                    app_label_index = package_components.index(MODELS_MODULE_NAME) + 1  # noqa
                 except ValueError:
                     app_label_index = 1
                 kwargs = {"app_label": package_components[app_label_index]}
@@ -135,14 +132,18 @@ class ROAModelBase(ModelBase):
                 'DoesNotExist',
                 subclass_exception(
                     str('DoesNotExist'),
-                    tuple(x.DoesNotExist for x in parents if hasattr(x, '_meta') and not x._meta.abstract) or (ObjectDoesNotExist,),
+                    tuple(
+                        x.DoesNotExist for x in parents if hasattr(x, '_meta') and not x._meta.abstract  # noqa
+                    ) or (ObjectDoesNotExist,),
                     module,
                     attached_to=new_class))
             new_class.add_to_class(
                 'MultipleObjectsReturned',
                 subclass_exception(
                     str('MultipleObjectsReturned'),
-                    tuple(x.MultipleObjectsReturned for x in parents if hasattr(x, '_meta') and not x._meta.abstract) or (MultipleObjectsReturned,),
+                    tuple(
+                        x.MultipleObjectsReturned for x in parents if hasattr(x, '_meta') and not x._meta.abstract  # noqa
+                    ) or (MultipleObjectsReturned,),
                     module,
                     attached_to=new_class))
             if base_meta and not base_meta.abstract:
@@ -159,7 +160,8 @@ class ROAModelBase(ModelBase):
         # If the model is a proxy, ensure that the base class
         # hasn't been swapped out.
         if is_proxy and base_meta and base_meta.swapped:
-            raise TypeError("%s cannot proxy the swapped model '%s'." % (name, base_meta.swapped))
+            raise TypeError("{} cannot proxy the swapped model '{}'.".format(
+                name, base_meta.swapped))
 
         if getattr(new_class, '_default_manager', None):
             if not is_proxy:
@@ -170,8 +172,8 @@ class ROAModelBase(ModelBase):
             else:
                 # Proxy classes do inherit parent's default manager, if none is
                 # set explicitly.
-                new_class._default_manager = new_class._default_manager._copy_to_model(new_class)
-                new_class._base_manager = new_class._base_manager._copy_to_model(new_class)
+                new_class._default_manager = new_class._default_manager._copy_to_model(new_class)  # noqa
+                new_class._base_manager = new_class._base_manager._copy_to_model(new_class)  # noqa
 
         # Add all attributes to the class.
         for obj_name, obj in attrs.items():
@@ -191,15 +193,15 @@ class ROAModelBase(ModelBase):
             for parent in [kls for kls in parents if hasattr(kls, '_meta')]:
                 if parent._meta.abstract:
                     if parent._meta.fields:
-                        raise TypeError("Abstract base class containing model fields not permitted for proxy model '%s'." % name)
+                        raise TypeError("Abstract base class containing model fields not permitted for proxy model '%s'." % name)  # noqa
                     else:
                         continue
                 if base is not None:
-                    raise TypeError("Proxy model '%s' has more than one non-abstract model base class." % name)
+                    raise TypeError("Proxy model '%s' has more than one non-abstract model base class." % name)  # noqa
                 else:
                     base = parent
             if base is None:
-                raise TypeError("Proxy model '%s' has no non-abstract model base class." % name)
+                raise TypeError("Proxy model '%s' has no non-abstract model base class." % name)  # noqa
             new_class._meta.setup_proxy(base)
             new_class._meta.concrete_model = base._meta.concrete_model
         else:
@@ -227,7 +229,8 @@ class ROAModelBase(ModelBase):
                 # uninteresting parents.
                 continue
 
-            parent_fields = base._meta.local_fields + base._meta.local_many_to_many
+            parent_fields = \
+                base._meta.local_fields + base._meta.local_many_to_many
             # Check for clashes between locally declared fields and those
             # on the base classes (we cannot handle shadowed fields at the
             # moment).
@@ -245,8 +248,9 @@ class ROAModelBase(ModelBase):
                     field = parent_links[base]
                 elif not is_proxy:
                     attr_name = '%s_ptr' % base._meta.model_name
-                    field = OneToOneField(base, name=attr_name,
-                            auto_created=True, parent_link=True)
+                    field = OneToOneField(
+                        base, name=attr_name,
+                        auto_created=True, parent_link=True)
                     # Only add the ptr field if it's not already present;
                     # e.g. migrations will already have it specified
                     if not hasattr(new_class, attr_name):
@@ -277,7 +281,8 @@ class ROAModelBase(ModelBase):
                     raise FieldError(
                         'Local field %r in class %r clashes '
                         'with field of similar name from '
-                        'abstract base class %r' % (field.name, name, base.__name__)
+                        'abstract base class %r' %
+                        (field.name, name, base.__name__)
                     )
                 new_class.add_to_class(field.name, copy.deepcopy(field))
 
@@ -290,13 +295,15 @@ class ROAModelBase(ModelBase):
             return new_class
 
         new_class._prepare()
-        new_class._meta.apps.register_model(new_class._meta.app_label, new_class)
+        new_class._meta.apps.register_model(
+            new_class._meta.app_label, new_class)
         return new_class
 
     @classmethod
     def _new_old_django(cls, name, bases, attrs):
         """
-        Exactly the same except the line with ``isinstance(b, ROAModelBase)`` and part delimited by 'ROA HACK'
+        Exactly the same except the line with ``isinstance(b, ROAModelBase)``
+        and part delimited by 'ROA HACK'.
         """
         super_new = super(ModelBase, cls).__new__
 
@@ -311,8 +318,10 @@ class ROAModelBase(ModelBase):
 
         # Also ensure initialization is only performed for subclasses of Model
         # (excluding Model class itself).
-        parents = [b for b in bases if isinstance(b, ROAModelBase) and
-                not (b.__name__ == 'NewBase' and b.__mro__ == (b, object))]
+        parents = [
+            b for b in bases if isinstance(b, ROAModelBase) and
+            not (b.__name__ == 'NewBase' and b.__mro__ == (b, object))
+        ]
         if not parents:
             return super_new(cls, name, bases, attrs)
 
@@ -337,29 +346,35 @@ class ROAModelBase(ModelBase):
 
         new_class.add_to_class('_meta', Options(meta, **kwargs))
         if not abstract:
+
             # ROA HACK:
 
             subclass_kwargs = {
                 'name': str('DoesNotExist'),
-                'parents': tuple(x.DoesNotExist for x in parents if hasattr(x, '_meta') and not x._meta.abstract)
-                    or (ObjectDoesNotExist,),
+                'parents': tuple(
+                    x.DoesNotExist for x in parents if hasattr(x, '_meta') and not x._meta.abstract  # noqa
+                ) or (ObjectDoesNotExist,),
                 'module': module
             }
             if DJANGO_GT_1_4:
                 subclass_kwargs['attached_to'] = new_class
 
-            new_class.add_to_class('DoesNotExist', subclass_exception(**subclass_kwargs))
+            new_class.add_to_class(
+                'DoesNotExist', subclass_exception(**subclass_kwargs))
 
             subclass_kwargs = {
                 'name': str('MultipleObjectsReturned'),
-                'parents': tuple(x.MultipleObjectsReturned for x in parents if hasattr(x, '_meta') and not x._meta.abstract)
-                    or (MultipleObjectsReturned,),
+                'parents': tuple(
+                    x.MultipleObjectsReturned for x in parents if hasattr(x, '_meta') and not x._meta.abstract  # noqa
+                ) or (MultipleObjectsReturned,),
                 'module': module
             }
             if DJANGO_GT_1_4:
                 subclass_kwargs['attached_to'] = new_class
 
-            new_class.add_to_class('MultipleObjectsReturned', subclass_exception(**subclass_kwargs))
+            new_class.add_to_class(
+                'MultipleObjectsReturned',
+                subclass_exception(**subclass_kwargs))
 
             # END HACK
 
@@ -377,7 +392,9 @@ class ROAModelBase(ModelBase):
         # If the model is a proxy, ensure that the base class
         # hasn't been swapped out.
         if is_proxy and base_meta and base_meta.swapped:
-            raise TypeError("%s cannot proxy the swapped model '%s'." % (name, base_meta.swapped))
+            raise TypeError(
+                "%s cannot proxy the swapped model '%s'." %
+                (name, base_meta.swapped))
 
         if getattr(new_class, '_default_manager', None):
             if not is_proxy:
@@ -388,8 +405,8 @@ class ROAModelBase(ModelBase):
             else:
                 # Proxy classes do inherit parent's default manager, if none is
                 # set explicitly.
-                new_class._default_manager = new_class._default_manager._copy_to_model(new_class)
-                new_class._base_manager = new_class._base_manager._copy_to_model(new_class)
+                new_class._default_manager = new_class._default_manager._copy_to_model(new_class)  # noqa
+                new_class._base_manager = new_class._base_manager._copy_to_model(new_class)  # noqa
 
         # Bail out early if we have already created this class.
         m = get_model(new_class._meta.app_label, name,
@@ -402,37 +419,43 @@ class ROAModelBase(ModelBase):
             new_class.add_to_class(obj_name, obj)
 
         # All the fields of any type declared on this model
-        new_fields = new_class._meta.local_fields + \
-                     new_class._meta.local_many_to_many + \
-                     new_class._meta.virtual_fields
+        new_fields = (
+            new_class._meta.local_fields +
+            new_class._meta.local_many_to_many +
+            new_class._meta.virtual_fields
+        )
         field_names = set([f.name for f in new_fields])
 
         # Basic setup for proxy models.
         if is_proxy:
             base = None
-            for parent in [cls for cls in parents if hasattr(cls, '_meta')]:
+            for parent in [cls_ for cls_ in parents if hasattr(cls_, '_meta')]:
                 if parent._meta.abstract:
                     if parent._meta.fields:
-                        raise TypeError("Abstract base class containing model fields not permitted for proxy model '%s'." % name)
+                        raise TypeError("Abstract base class containing model fields not permitted for proxy model '%s'." % name)  # noqa
                     else:
                         continue
                 if base is not None:
-                    raise TypeError("Proxy model '%s' has more than one non-abstract model base class." % name)
+                    raise TypeError("Proxy model '%s' has more than one non-abstract model base class." % name)  # noqa
                 else:
                     base = parent
             if base is None:
-                raise TypeError("Proxy model '%s' has no non-abstract model base class." % name)
+                raise TypeError(
+                    "Proxy model '%s' has no non-abstract model base class." % name)  # noqa
             if (new_class._meta.local_fields or
                     new_class._meta.local_many_to_many):
-                raise FieldError("Proxy model '%s' contains model fields." % name)
+                raise FieldError(
+                    "Proxy model '%s' contains model fields." % name)
             new_class._meta.setup_proxy(base)
             new_class._meta.concrete_model = base._meta.concrete_model
         else:
             new_class._meta.concrete_model = new_class
 
         # Do the appropriate setup for any model parents.
-        o2o_map = dict([(f.rel.to, f) for f in new_class._meta.local_fields
-                if isinstance(f, OneToOneField)])
+        o2o_map = dict(
+            [(f.rel.to, f) for f in new_class._meta.local_fields
+             if isinstance(f, OneToOneField)]
+        )
 
         for base in parents:
             original_base = base
@@ -441,7 +464,8 @@ class ROAModelBase(ModelBase):
                 # uninteresting parents.
                 continue
 
-            parent_fields = base._meta.local_fields + base._meta.local_many_to_many
+            parent_fields = \
+                base._meta.local_fields + base._meta.local_many_to_many
             # Check for clashes between locally declared fields and those
             # on the base classes (we cannot handle shadowed fields at the
             # moment).
@@ -450,7 +474,7 @@ class ROAModelBase(ModelBase):
                     raise FieldError('Local field %r in class %r clashes '
                                      'with field of similar name from '
                                      'base class %r' %
-                                        (field.name, name, base.__name__))
+                                     (field.name, name, base.__name__))
             if not base._meta.abstract:
                 # Concrete classes...
                 base = base._meta.concrete_model
@@ -458,8 +482,9 @@ class ROAModelBase(ModelBase):
                     field = o2o_map[base]
                 elif not is_proxy:
                     attr_name = '%s_ptr' % base._meta.model_name
-                    field = OneToOneField(base, name=attr_name,
-                            auto_created=True, parent_link=True)
+                    field = OneToOneField(
+                        base, name=attr_name,
+                        auto_created=True, parent_link=True)
                     new_class.add_to_class(attr_name, field)
                 else:
                     field = None
@@ -484,10 +509,10 @@ class ROAModelBase(ModelBase):
             # class
             for field in base._meta.virtual_fields:
                 if base._meta.abstract and field.name in field_names:
-                    raise FieldError('Local field %r in class %r clashes '\
-                                     'with field of similar name from '\
-                                     'abstract base class %r' % \
-                                        (field.name, name, base.__name__))
+                    raise FieldError('Local field %r in class %r clashes '
+                                     'with field of similar name from '
+                                     'abstract base class %r' %
+                                     (field.name, name, base.__name__))
                 new_class.add_to_class(field.name, copy.deepcopy(field))
 
         if abstract:
@@ -516,8 +541,10 @@ class ROAModelBase(ModelBase):
         opts._prepare(cls)
 
         if opts.order_with_respect_to:
-            cls.get_next_in_order = curry(cls._get_next_or_previous_in_order, is_next=True)
-            cls.get_previous_in_order = curry(cls._get_next_or_previous_in_order, is_next=False)
+            cls.get_next_in_order = curry(
+                cls._get_next_or_previous_in_order, is_next=True)
+            cls.get_previous_in_order = curry(
+                cls._get_next_or_previous_in_order, is_next=False)
 
             # defer creating accessors on the foreign class until we are
             # certain it has been created
@@ -541,23 +568,27 @@ class ROAModelBase(ModelBase):
 
         # Give the class a docstring -- its definition.
         if cls.__doc__ is None:
-            cls.__doc__ = "%s(%s)" % (cls.__name__, ", ".join([f.attname for f in opts.fields]))
+            cls.__doc__ = u"{}({})".format(
+                cls.__name__, ", ".join([f.attname for f in opts.fields]))
 
         if hasattr(cls, 'get_absolute_url'):
-            cls.get_absolute_url = update_wrapper(curry(get_absolute_url, opts, cls.get_absolute_url),
-                                                  cls.get_absolute_url)
+            cls.get_absolute_url = update_wrapper(
+                curry(get_absolute_url, opts, cls.get_absolute_url),
+                cls.get_absolute_url)
 
         if hasattr(cls, 'get_resource_url_list'):
-            cls.get_resource_url_list = staticmethod(curry(get_resource_url_list,
-                                                           opts, cls.get_resource_url_list))
+            cls.get_resource_url_list = staticmethod(
+                curry(get_resource_url_list, opts, cls.get_resource_url_list))
 
         if hasattr(cls, 'get_resource_url_count'):
-            cls.get_resource_url_count = update_wrapper(curry(get_resource_url_count, opts, cls.get_resource_url_count),
-                                                        cls.get_resource_url_count)
+            cls.get_resource_url_count = update_wrapper(
+                curry(get_resource_url_count, opts, cls.get_resource_url_count),  # noqa
+                cls.get_resource_url_count)
 
         if hasattr(cls, 'get_resource_url_detail'):
-            cls.get_resource_url_detail = update_wrapper(curry(get_resource_url_detail, opts, cls.get_resource_url_detail),
-                                                         cls.get_resource_url_detail)
+            cls.get_resource_url_detail = update_wrapper(
+                curry(get_resource_url_detail, opts, cls.get_resource_url_detail),  # noqa
+                cls.get_resource_url_detail)
 
         signals.class_prepared.send(sender=cls)
 
@@ -604,11 +635,11 @@ class ROAModel(models.Model):
 
     def get_serializer_content_type(self):
         if ROA_FORMAT == 'json':
-            return {'Content-Type' : 'application/json'}
+            return {'Content-Type': 'application/json'}
         elif ROA_FORMAT == 'xml':
-            return {'Content-Type' : 'application/xml'}
+            return {'Content-Type': 'application/xml'}
         elif ROA_FORMAT == 'yaml':
-            return {'Content-Type' : 'text/x-yaml'}
+            return {'Content-Type': 'text/x-yaml'}
         else:
             raise NotImplementedError
 
@@ -624,7 +655,8 @@ class ROAModel(models.Model):
             serializer = serializer_class(instance, partial=partial, **kwargs)
         elif data:
             data = data['results'] if 'results' in data else data
-            serializer = serializer_class(data=data, many=isinstance(data, list), **kwargs)
+            serializer = serializer_class(
+                data=data, many=isinstance(data, list), **kwargs)
 
         return serializer
 
@@ -646,8 +678,13 @@ class ROAModel(models.Model):
         return count
 
     def get_resource_url_count(self):
-        # By default this method is not with compatible with json Django Rest Framework standard viewset urls
-        # In this case, you just have to override it and return self.get_resource_url_list()
+        """
+        By default this method is not with compatible with json
+        Django Rest Framework standard viewset urls.
+
+        In this case, you just have to override it and return
+        `self.get_resource_url_list()`
+        """
         return u"%scount/" % (self.get_resource_url_list(),)
 
     def get_resource_url_detail(self):
@@ -677,8 +714,6 @@ class ROAModel(models.Model):
         if origin and not getattr(meta, "auto_created", False):
             signals.pre_save.send(sender=origin, instance=self, raw=raw)
 
-        model_name = str(meta)
-
         # If we are in a raw save, save the object exactly as presented.
         # That means that we don't try to be smart about saving attributes
         # that might have come from the parent class - we just save the
@@ -694,13 +729,17 @@ class ROAModel(models.Model):
                 # At this point, parent's primary key field may be unknown
                 # (for example, from administration form which doesn't fill
                 # this field). If so, fill it.
-                if field and getattr(self, parent._meta.pk.attname) is None and getattr(self, field.attname) is not None:
-                    setattr(self, parent._meta.pk.attname, getattr(self, field.attname))
+                if field and getattr(self, parent._meta.pk.attname) is None \
+                   and getattr(self, field.attname) is not None:
+                    setattr(self, parent._meta.pk.attname,
+                            getattr(self, field.attname))
 
                 self.save_base(cls=parent, origin=org, using=using)
 
                 if field:
-                    setattr(self, field.attname, self._get_pk_val(parent._meta))
+                    setattr(self,
+                            field.attname,
+                            self._get_pk_val(parent._meta))
             if meta.proxy:
                 return
 
@@ -708,8 +747,9 @@ class ROAModel(models.Model):
             pk_val = self._get_pk_val(meta)
             pk_is_set = pk_val is not None
 
-            get_args = {}
-            get_args[ROA_ARGS_NAMES_MAPPING.get('FORMAT', 'format')] = ROA_FORMAT
+            get_args = {
+                ROA_ARGS_NAMES_MAPPING.get('FORMAT', 'format'): ROA_FORMAT
+            }
             get_args.update(ROA_CUSTOM_ARGS)
 
             # Construct Json payload
@@ -721,30 +761,35 @@ class ROAModel(models.Model):
             headers.update(self.get_serializer_content_type())
 
             # check if resource use custom primary key
-            if not meta.pk.attname in ['pk', 'id']:
+            if meta.pk.attname not in ['pk', 'id']:
                 # consider it might be inserting so check it first
-                # @todo: try to improve this block to check if custom pripary key is not None first
+                # @todo: try to improve this block to check if custom primary key is not None first  # noqa
                 resource = Resource(self.get_resource_url_detail(),
                                     filters=ROA_FILTERS, **ROA_SSL_ARGS)
                 try:
-                    response = resource.get(payload=None, headers=headers, **get_args)
+                    response = resource.get(
+                        payload=None, headers=headers, **get_args)
                 except ResourceNotFound:
-                    # since such resource does not exist, it's actually creating
+                    # since such resource does not exist,
+                    # it's actually creating
                     pk_is_set = False
                 except RequestFailed:
                     pk_is_set = False
 
-            if force_update or pk_is_set and not self.pk is None:
+            if force_update or pk_is_set and self.pk is not None:
                 record_exists = True
                 resource = Resource(self.get_resource_url_detail(),
                                     filters=ROA_FILTERS, **ROA_SSL_ARGS)
                 try:
-                    logger.debug(u"""Modifying : "%s" through %s with payload "%s" and GET args "%s" """ % (
-                                  force_unicode(self),
-                                  force_unicode(resource.uri),
-                                  force_unicode(payload),
-                                  force_unicode(get_args)))
-                    response = resource.put(payload=payload, headers=headers, **get_args)
+                    logger.debug((
+                        u"Modifying : '{} through %s with payload '{}' and GET"
+                        u" args '{}'").format(
+                            force_unicode(self),
+                            force_unicode(resource.uri),
+                            force_unicode(payload),
+                            force_unicode(get_args)))
+                    response = resource.put(
+                        payload=payload, headers=headers, **get_args)
                 except RequestFailed as e:
                     raise ROAException(e)
             else:
@@ -752,21 +797,28 @@ class ROAModel(models.Model):
                 resource = Resource(self.get_resource_url_list(),
                                     filters=ROA_FILTERS, **ROA_SSL_ARGS)
                 try:
-                    logger.debug(u"""Creating  : "%s" through %s with payload "%s" and GET args "%s" """ % (
-                                  force_unicode(self),
-                                  force_unicode(resource.uri),
-                                  force_unicode(payload),
-                                  force_unicode(get_args)))
-                    response = resource.post(payload=payload, headers=headers, **get_args)
+                    logger.debug((
+                        u"Creating  : '{}' through {} with payload '{}' and "
+                        u"GET args '{}'").format(
+                            force_unicode(self),
+                            force_unicode(resource.uri),
+                            force_unicode(payload),
+                            force_unicode(get_args)
+                        ))
+                    response = resource.post(
+                        payload=payload, headers=headers, **get_args)
                 except RequestFailed as e:
                     raise ROAException(e)
 
-            response = force_unicode(response.body_string()).encode(DEFAULT_CHARSET)
+            response = force_unicode(response.body_string()).encode(
+                DEFAULT_CHARSET)
 
             data = self.get_parser().parse(StringIO(response))
             serializer = self.get_serializer(data=data)
             if not serializer.is_valid():
-                raise ROAException(u'Invalid deserialization for %s model: %s' % (self, serializer.errors))
+                raise ROAException(
+                    u'Invalid deserialization for {} model: {}'.format(
+                        self, serializer.errors))
             try:
                 self.pk = int(serializer.object.pk)
             except ValueError:
@@ -774,22 +826,23 @@ class ROAModel(models.Model):
             self = serializer.object
 
         if origin:
-            signals.post_save.send(sender=origin, instance=self,
-                created=(not record_exists), raw=raw)
+            signals.post_save.send(
+                sender=origin, instance=self, created=(not record_exists),
+                raw=raw)
 
     save_base.alters_data = True
 
     def delete(self):
-        assert self._get_pk_val() is not None, "%s object can't be deleted " \
-                "because its %s attribute is set to None." \
-                % (self._meta.object_name, self._meta.pk.attname)
+        assert self._get_pk_val() is not None, (
+            u"{} object can't be deleted because its {} attribute is set to "
+            u"None.").format(self._meta.object_name, self._meta.pk.attname)
 
         # Deletion in cascade should be done server side.
         resource = Resource(self.get_resource_url_detail(),
                             filters=ROA_FILTERS, **ROA_SSL_ARGS)
 
-        logger.debug(u"""Deleting  : "%s" through %s""" % \
-            (unicode(self), unicode(resource.uri)))
+        logger.debug(u"Deleting  : '{}' through {}".format(
+            unicode(self), unicode(resource.uri)))
 
         # Add serializer content_type
         headers = get_roa_headers()

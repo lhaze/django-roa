@@ -21,9 +21,11 @@ class RemoteUserModelBackend(ModelBackend):
         """
         if not hasattr(user_obj, '_group_perm_cache'):
             # TODO: improve performances
-            permissions = [u"%s.%s" % (p.content_type.app_label, p.codename) \
-                                        for group in user_obj.groups.all() \
-                                            for p in group.permissions.all()]
+            permissions = [
+                u"{}.{}".format(p.content_type.app_label, p.codename)
+                for group in user_obj.groups.all()
+                for p in group.permissions.all()
+            ]
             user_obj._group_perm_cache = permissions
         return user_obj._group_perm_cache
 
